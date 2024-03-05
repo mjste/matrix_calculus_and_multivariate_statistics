@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Callable
 import time
 
 matrixType = List[List[int]]
@@ -9,7 +9,8 @@ def print_arr(A: matrixType) -> None:
         print(row)
 
 
-def timeit(func):
+def timeit(func: Callable) -> Callable:
+    """Decorator to time a function"""
     def timed(*args, **kw):
         start = time.time()
         result = func(*args, **kw)
