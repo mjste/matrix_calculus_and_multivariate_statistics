@@ -1,5 +1,7 @@
-import numpy as np
 from typing import Tuple
+
+import numpy as np
+
 from utils import matrixType, timeit
 
 
@@ -36,7 +38,7 @@ def multiply_matrices(A: matrixType, B: matrixType) -> Tuple[matrixType, int, in
 
 
 def partition_square_matrix(
-    A: matrixType,
+        A: matrixType,
 ) -> Tuple[matrixType, matrixType, matrixType, matrixType]:
     """Partition a matrix into 4 submatrices
     Args:
@@ -122,12 +124,84 @@ def is_power_of_two(n: int) -> bool:
     return n != 0 and (n & (n - 1)) == 0
 
 
+def add_mat(A: matrixType, B: matrixType) -> matrixType:
+    return [[A[i][j] + B[i][j] for j in range(len(A[0]))] for i in range(len(A))]
+
+
+def sub_mat(A: matrixType, B: matrixType) -> matrixType:
+    return [[A[i][j] - B[i][j] for j in range(len(A[0]))] for i in range(len(A))]
+
+
+def strassen_multiplication(A: matrixType, B: matrixType) -> Tuple[matrixType, int, int]:
+    """Multiply two matrices using Strassens's method.
+
+    Args:
+    A: First matrix
+    B: Second matrix
+
+    Returns:
+    C: Resultant matrix
+    sum_count: Number of additions
+    multiply_count: Number of multiplications
+    """
+    k = len(A)
+    if k == 1:
+        return [[A[0][0] * B[0][0]]], 0, 1
+
+    A11, A12, A21, A22 = partition_square_matrix(A)
+    B11, B12, B21, B22 = partition_square_matrix(B)
+
+    adds, muls = 0, 0
+    p = len(A11) ** 2  # count of add operations in each partition add/sub
+
+    P1, a, m = strassen_multiplication(A11, sub_mat(B12, B22))
+    adds += a + p;
+    muls += m
+    P2, a, m = strassen_multiplication(add_mat(A11, A12), B22)
+    adds += a + p;
+    muls += m
+    P3, a, m = strassen_multiplication(add_mat(A21, A22), B11)
+    adds += a + p;
+    muls += m
+    P4, a, m = strassen_multiplication(A22, sub_mat(B21, B11))
+    adds += a + p;
+    muls += m
+    P5, a, m = strassen_multiplication(add_mat(A11, A22), add_mat(B11, B22))
+    adds += a + 2 * p;
+    muls += m
+    P6, a, m = strassen_multiplication(sub_mat(A12, A22), add_mat(B21, B22))
+    adds += a + 2 * p;
+    muls += m
+    P7, a, m = strassen_multiplication(sub_mat(A11, A21), add_mat(B11, B12))
+    adds += a + 2 * p;
+    muls += m
+
+    C11 = add_mat(sub_mat(add_mat(P5, P4), P2), P6)
+    adds += 3 * p
+    C12 = add_mat(P1, P2)
+    adds += p
+    C21 = add_mat(P3, P4)
+    adds += p
+    C22 = sub_mat(sub_mat(add_mat(P5, P1), P3), P7)
+    adds += 3 * p
+
+    C = [[0 for _ in range(k)] for _ in range(k)]
+    for i in range(k // 2):
+        for j in range(k // 2):
+            C[i][j] = C11[i][j]
+            C[i][k // 2 + j] = C12[i][j]
+            C[k // 2 + i][j] = C21[i][j]
+            C[k // 2 + i][k // 2 + j] = C22[i][j]
+
+    return C, adds, muls
+
+
 if __name__ == "__main__":
     timed_multiply_matrices = timeit(multiply_matrices)
     timed_binet_multiplication = timeit(binet_multiplication)
 
     for exponent in range(1, 8):
-        size = 2**exponent
+        size = 2 ** exponent
         np_array_1 = np.random.randint(1, 100, size=(size, size))
         np_array_2 = np.random.randint(1, 100, size=(size, size))
         array_1 = np_array_1.tolist()
@@ -144,6 +218,13 @@ if __name__ == "__main__":
 
         print(f"Matrix Multiplication using Binet's Method for {size}x{size} matrix:")
         C, sum_count, multiply_count = timed_binet_multiplication(array_1, array_2)
+        assert np.allclose(np.array(C), np_true_result)
+        print(f"Sum Count: {sum_count}")
+        print(f"Multiply Count: {multiply_count}")
+        print()
+
+        print(f"Matrix Multiplication using Strassen's Method for {size}x{size} matrix:")
+        C, sum_count, multiply_count = timeit(strassen_multiplication)(array_1, array_2)
         assert np.allclose(np.array(C), np_true_result)
         print(f"Sum Count: {sum_count}")
         print(f"Multiply Count: {multiply_count}")

@@ -1,5 +1,5 @@
-from typing import List, Callable
 import time
+from typing import List, Callable
 
 matrixType = List[List[int]]
 
