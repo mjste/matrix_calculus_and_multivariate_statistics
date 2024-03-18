@@ -196,6 +196,61 @@ def strassen_multiplication(A: matrixType, B: matrixType) -> Tuple[matrixType, i
     return C, adds, muls
 
 
+def binet_normal_mixed_matmul(A: matrixType, B: matrixType, l: int) -> Tuple[matrixType, int, int]:
+    """Multiply two matrices using Binet's method.
+    Matrix dimensions must be powers of 2 and equal.
+
+    Args:
+    A: First matrix
+    B: Second matrix
+
+    Returns:
+    C: Resultant matrix
+    sum_count: Number of additions
+    multiply_count: Number of multiplications
+    """
+
+    if not len(A) == len(A[0]) == len(B) == len(B[0]):
+        raise ValueError("Matrix dimensions do not match")
+    k = len(A)
+    if not is_power_of_two(k):
+        raise ValueError("Matrix dimensions are not powers of 2")
+
+    if k <= 2 ** l:
+        return multiply_matrices(A, B)
+
+    A11, A12, A21, A22 = partition_square_matrix(A)
+    B11, B12, B21, B22 = partition_square_matrix(B)
+
+    C = [[0 for _ in range(k)] for _ in range(k)]
+
+    A11B11, s1, m1 = binet_normal_mixed_matmul(A11, B11, l)
+    A12B21, s2, m2 = binet_normal_mixed_matmul(A12, B21, l)
+    A11B12, s3, m3 = binet_normal_mixed_matmul(A11, B12, l)
+    A12B22, s4, m4 = binet_normal_mixed_matmul(A12, B22, l)
+    A21B11, s5, m5 = binet_normal_mixed_matmul(A21, B11, l)
+    A22B21, s6, m6 = binet_normal_mixed_matmul(A22, B21, l)
+    A21B12, s7, m7 = binet_normal_mixed_matmul(A21, B12, l)
+    A22B22, s8, m8 = binet_normal_mixed_matmul(A22, B22, l)
+
+    for i in range(k // 2):
+        for j in range(k // 2):
+            C[i][j] += A11B11[i][j] + A12B21[i][j]
+        for j in range(k - k // 2):
+            C[i][k // 2 + j] += A11B12[i][j] + A12B22[i][j]
+
+    for i in range(k - k // 2):
+        for j in range(k // 2):
+            C[k // 2 + i][j] += A21B11[i][j] + A22B21[i][j]
+        for j in range(k - k // 2):
+            C[k // 2 + i][k // 2 + j] += A21B12[i][j] + A22B22[i][j]
+
+    sum_count = s1 + s2 + s3 + s4 + s5 + s6 + s7 + s8 + k * k
+    multiply_count = m1 + m2 + m3 + m4 + m5 + m6 + m7 + m8
+
+    return C, sum_count, multiply_count
+
+
 if __name__ == "__main__":
     timed_multiply_matrices = timeit(multiply_matrices)
     timed_binet_multiplication = timeit(binet_multiplication)
@@ -225,6 +280,13 @@ if __name__ == "__main__":
 
         print(f"Matrix Multiplication using Strassen's Method for {size}x{size} matrix:")
         C, sum_count, multiply_count = timeit(strassen_multiplication)(array_1, array_2)
+        assert np.allclose(np.array(C), np_true_result)
+        print(f"Sum Count: {sum_count}")
+        print(f"Multiply Count: {multiply_count}")
+        print()
+
+        print(f"Matrix Multiplication using Binet's Method for {size}x{size} matrix with mixed method:")
+        C, sum_count, multiply_count = binet_normal_mixed_matmul(array_1, array_2, 2)
         assert np.allclose(np.array(C), np_true_result)
         print(f"Sum Count: {sum_count}")
         print(f"Multiply Count: {multiply_count}")
