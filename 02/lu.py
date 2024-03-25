@@ -1,11 +1,7 @@
 import numpy as np
-from typing import List, Tuple
+from typing import Tuple
 
-matrixType = List[List[float]]
-
-def print_matrix(A: matrixType) -> None:
-    for row in A:
-        print("[ " + " ".join(f'{x:.2f}' for x in row) + " ]")
+from common import matrixType, print_matrix
 
 
 def lu_factorization(A: matrixType) -> Tuple[matrixType, matrixType]:
@@ -55,7 +51,6 @@ def lu_factorization_with_pivoting(A: matrixType) -> Tuple[matrixType, matrixTyp
     return L, U, P
 
 
-
 if __name__ == "__main__":
     print("\nLU:")
     A = np.random.rand(3, 3).astype(float)
@@ -85,4 +80,3 @@ if __name__ == "__main__":
     print_matrix(np.matmul(L, U))
     print("Matrix P * A - L * U:")
     print_matrix(np.subtract(np.matmul(P, A), np.matmul(L, U)))
-
