@@ -24,7 +24,9 @@ def lu_factorization_with_pivoting(A: matrixType) -> Tuple[matrixType, matrixTyp
     n = len(A)
     L = [[0.0] * n for _ in range(n)]
     U = [[0.0] * n for _ in range(n)]
-    P = [[float(i == j) for i in range(n)] for j in range(n)]  # Initialize the permutation matrix as an identity matrix
+
+    # Initialize the permutation matrix as an identity matrix
+    P = [[float(i == j) for i in range(n)] for j in range(n)]
 
     for j in range(n):
         # Partial pivoting
