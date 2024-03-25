@@ -1,11 +1,7 @@
 import numpy as np
-from typing import List, Tuple
+from typing import Tuple
 
-matrixType = List[List[float]]
-
-def print_matrix(A: matrixType) -> None:
-    for row in A:
-        print("[ " + " ".join(f'{x:.2f}' for x in row) + " ]")
+from common import matrixType, print_matrix
 
 
 def lu_factorization(A: matrixType) -> Tuple[matrixType, matrixType]:
@@ -28,7 +24,9 @@ def lu_factorization_with_pivoting(A: matrixType) -> Tuple[matrixType, matrixTyp
     n = len(A)
     L = [[0.0] * n for _ in range(n)]
     U = [[0.0] * n for _ in range(n)]
-    P = [[float(i == j) for i in range(n)] for j in range(n)]  # Initialize the permutation matrix as an identity matrix
+
+    # Initialize the permutation matrix as an identity matrix
+    P = [[float(i == j) for i in range(n)] for j in range(n)]
 
     for j in range(n):
         # Partial pivoting
@@ -53,7 +51,6 @@ def lu_factorization_with_pivoting(A: matrixType) -> Tuple[matrixType, matrixTyp
             L[i][j] = (A[i][j] - sum_l) / U[j][j]
 
     return L, U, P
-
 
 
 if __name__ == "__main__":
@@ -85,4 +82,3 @@ if __name__ == "__main__":
     print_matrix(np.matmul(L, U))
     print("Matrix P * A - L * U:")
     print_matrix(np.subtract(np.matmul(P, A), np.matmul(L, U)))
-
