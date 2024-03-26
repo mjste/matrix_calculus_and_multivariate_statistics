@@ -252,61 +252,84 @@ Poniżej przedstawiamy implementację rozkładu LU w wersji bez pivotingu oraz z
 
 \subsection{Rozkład LU bez pivotingu - pseudokod}
 
+\textbf{Wejście}: Kwadratowa macierz \(A\) \\
+\textbf{Wyjście}: Dolna macierz trójkątna \(L\) i górna macierz trójkątna \(U\)
+
+\begin{enumerate}
+    \item Niech \(n\) oznacza liczbę wierszy w macierzy kwadratowej \(A\).
+    \item Zainicjalizuj macierz \(U\) jako kopię macierzy \(A\), macierz \(L\) jako macierz jednostkową o rozmiarze \(n\).
+    \item Dla każdego wiersza \(i\) macierzy \(U\), zaczynając od pierwszego:
+    \begin{enumerate}
+        \item Dla każdego wiersza \(j\) poniżej aktualnego wiersza:
+        \begin{enumerate}
+            \item Oblicz mnożnik - element wiersza \(j\) i kolumny \(i\) podzielony przez element wiersza \(i\) i kolumny \(i\) w macierzy \(U\).
+            \item Zaktualizuj wiersz \(j\) w macierzy \(U\) odejmując od niego iloczyn mnożnika i elementu wiersza \(i\).
+        \end{enumerate}
+    \end{enumerate}
+    \item Zwróć macierze \(L\) i \(U\).
+\end{enumerate}
+
 \subsection{Rozkład LU z pivotingiem - pseudokod}
+
+\textbf{Wejście}: Kwadratowa macierz \(A\) \\
+\textbf{Wyjście}: Macierz permutacji \(P\), dolna macierz trójkątna \(L\) i górna macierz trójkątna \(U\)
+
+\begin{enumerate}
+    \item Niech \(n\) oznacza liczbę wierszy w macierzy kwadratowej \(A\).
+    \item Zainicjalizuj macierz \(U\) jako kopię macierzy \(A\), macierze \(L\) i \(P\) jako macierze jednostkowe o rozmiarze \(n\).
+    \item Dla każdego wiersza \(i\) macierzy \(U\), zaczynając od pierwszego:
+    \begin{enumerate}
+        \item Pivotowanie:
+        \begin{enumerate}
+            \item Określ wiersz z największym elementem w kolumnie \(i\) w macierzy \(U\) - niech to będzie wiersz \(p\).
+            \item Zamień wiersze \(i\) i \(p\) w macierzy \(U\).
+            \item Zamień kolumny \(i\) i \(p\) w macierzy \(L\).
+            \item Zamień wiersze \(i\) i \(p\) w macierzy \(P\).
+        \end{enumerate}
+        \item Dla każdego wiersza \(j\) poniżej aktualnego wiersza:
+        \begin{enumerate}
+            \item Oblicz mnożnik - element wiersza \(j\) i kolumny \(i\) podzielony przez element wiersza \(i\) i kolumny \(i\) w macierzy \(U\).
+            \item Zaktualizuj wiersz \(j\) w macierzy \(U\) odejmując od niego iloczyn mnożnika i elementu wiersza \(i\).
+        \end{enumerate}
+    \end{enumerate}
+    \item Zwróć macierze \(P\), \(L\) i \(U\).
+\end{enumerate}
 
 \subsection{Rozkład LU bez pivotingu - kod}
 \begin{lstlisting}[language=python]
-def lu_factorization(A: matrixType) -> Tuple[matrixType, matrixType]:
-    n = len(A)
-    L = [[0.0] * n for _ in range(n)]
-    U = [[0.0] * n for _ in range(n)]
+def LU(A):
+    n = A.shape[0]
+    U = A.copy()
+    L = np.eye(n)
 
-    for j in range(n):
-        L[j][j] = 1.0
-        for i in range(j + 1):
-            sum_u = sum(U[k][j] * L[i][k] for k in range(i))
-            U[i][j] = A[i][j] - sum_u
-        for i in range(j + 1, n):
-            sum_l = sum(L[i][k] * U[k][j] for k in range(j))
-            L[i][j] = (A[i][j] - sum_l) / U[j][j]
+    for i in range(n):
+        for j in range(i+1, n):
+            L[j, i] = U[j, i] / U[i, i]
+            U[j, i:] = U[j, i:] - L[j, i]*U[i, i:]
+
     return L, U
 
 \end{lstlisting}
 
 \subsection{Rozkład LU z pivotingiem - kod}
 \begin{lstlisting}[language=python]
-def lu_factorization_with_pivoting(A: matrixType) \
-    -> Tuple[matrixType, matrixType, matrixType]:
-    n = len(A)
-    L = [[0.0] * n for _ in range(n)]
-    U = [[0.0] * n for _ in range(n)]
+def LU_partial_pivoting(A):
+    n = A.shape[0]
+    U = A.copy()
+    L = np.eye(n)
+    P = np.eye(n)
 
-    # Initialize the permutation matrix as an identity matrix
-    P = [[float(i == j) for i in range(n)] for j in range(n)]
+    for i in range(n):
+        pivot_row = np.argmax(abs(U[i:, i])) + i
+        U[[i, pivot_row], :] = U[[pivot_row, i], :]
+        L[[i, pivot_row], :i] = L[[pivot_row, i], :i]
+        P[[i, pivot_row], :] = P[[pivot_row, i], :]
 
-    for j in range(n):
-        # Partial pivoting
-        pivot_value = abs(A[j][j])
-        pivot_row = j
-        for i in range(j+1, n):
-            if abs(A[i][j]) > pivot_value:
-                pivot_value = abs(A[i][j])
-                pivot_row = i
-        if pivot_row != j:
-            # Swap rows in A, P
-            A[j], A[pivot_row] = A[pivot_row], A[j]
-            P[j], P[pivot_row] = P[pivot_row], P[j]
+        for j in range(i+1, n):
+            L[j, i] = U[j, i] / U[i, i]
+            U[j, i:] = U[j, i:] - L[j, i]*U[i, i:]
 
-        # Proceed with LU decomposition
-        L[j][j] = 1.0
-        for i in range(j + 1):
-            sum_u = sum(U[k][j] * L[i][k] for k in range(i))
-            U[i][j] = A[i][j] - sum_u
-        for i in range(j + 1, n):
-            sum_l = sum(L[i][k] * U[k][j] for k in range(j))
-            L[i][j] = (A[i][j] - sum_l) / U[j][j]
-
-    return L, U, P
+    return P, L, U
 
 \end{lstlisting}
 
