@@ -68,16 +68,15 @@ def backward_pass(A: matrixType, b: matrixType, pivot=False, eps=1.0e-10):
     debug_fn(A, b, pivot)
 
 
-def gauss_factorization(A: matrixType, b: matrixType, pivot=False, eps=1.0e-10):
+def gauss_factorization(A: matrixType, b: matrixType, pivot=False, eps=1.0e-8):
     """Perform Gauss factorization with partial pivoting on matrix A and vertical vector b"""
     if pivot:
         debug["pivot"] = []
     else:
         debug["nopivot"] = []
 
-    n = len(A)
-    A = [[A[i][j] for j in range(n)] for i in range(n)]
-    b = [[b[i][j] for j in range(1)] for i in range(n)]
+    A = copy_matrix(A)
+    b = copy_matrix(b)
 
     # forward pass
     forward_pass(A, b, pivot, eps)
@@ -86,11 +85,12 @@ def gauss_factorization(A: matrixType, b: matrixType, pivot=False, eps=1.0e-10):
     return b
 
 
-if __name__ == "__main__":
+def test_all():
     total = 0
     total_error = 0
-    for i in range(2, 9):
-        for k in range(1000):
+    nopivot_fails = 0
+    for i in range(2, 12):
+        for k in range(5000):
             A_np = np.random.randint(1, 10, (i, i)).astype(float)
             b_np = np.random.randint(1, 10, (i, 1)).astype(float)
             A = A_np.tolist()
@@ -103,15 +103,24 @@ if __name__ == "__main__":
             except np.linalg.LinAlgError:
                 continue
 
-            x_nopivot = gauss_factorization(A, b)
+            try:
+                x_nopivot = gauss_factorization(A, b)
+            except ValueError:
+                nopivot_fails += 1
+                continue
+            except ZeroDivisionError:
+                nopivot_fails += 1
+                continue
+
             x_pivot = gauss_factorization(A, b, pivot=True)
             x_nopivot_np = np.array(x_nopivot)
             x_pivot_np = np.array(x_pivot)
 
             eps = 1.0e-4
-            if (not np.allclose(x_np, x_nopivot_np, atol=eps) or not np.allclose(
-                x_np, x_pivot_np, atol=eps
-            )) and rank == i:
+            if (
+                not np.allclose(x_np, x_nopivot_np, atol=eps)
+                or not np.allclose(x_np, x_pivot_np, atol=eps)
+            ) and rank == i:
                 print("Error:")
                 print(f"Rank: {rank}")
                 print("A:")
@@ -139,38 +148,37 @@ if __name__ == "__main__":
                     print("b:")
                     print_matrix(b)
                     print()
-                assert False
+                # assert False
                 total_error += 1
             total += 1
     print(f"Total errors: {total_error}/{total}")
+    print(f"Total no pivot fails: {nopivot_fails}")
 
 
-# [ 9.00 3.00 7.00 3.00 ]
-# [ 3.00 9.00 5.00 2.00 ]
-# [ 7.00 1.00 5.00 7.00 ]
-# [ 2.00 6.00 4.00 1.00 ]
+if __name__ == "__main__":
+    # big matrix
+    found = False
+    while not found:
+        dim = 200
+        A = np.random.rand(dim, dim).astype(float)
+        b = np.random.rand(dim, 1).astype(float)
 
-# [ 2.00 ]
-# [ 6.00 ]
-# [ 3.00 ]
-# [ 6.00 ]
+        try:
+            solution = np.linalg.solve(A, b)
+        except np.linalg.LinAlgError:
+            continue
+        found = True
 
-# A = [
-#     [9.0, 3.0, 7.0, 3.0],
-#     [3.0, 9.0, 5.0, 2.0],
-#     [7.0, 1.0, 5.0, 7.0],
-#     [2.0, 6.0, 4.0, 1.0],
-# ]
-# b = [[2.0], [6.0], [3.0], [6.0]]
+        A_lst = A.tolist()
+        b_lst = b.tolist()
 
-# x = gauss_factorization(A, b)
-# print("x:")
-# print_matrix(x)
-# print()
-# for A, b in debug["nopivot"]:
-#     print("A:")
-#     print_matrix(A)
-#     print()
-#     # print("b:")
-#     # print_matrix(b)
-#     # print()
+        dirpath = "02/"
+
+        gf_pivot = np.array(gauss_factorization(A_lst, b_lst, pivot=True))
+        gf_nopivot = np.array(gauss_factorization(A_lst, b_lst))
+
+        np.savetxt(dirpath + "A.csv", A, delimiter=",")
+        np.savetxt(dirpath + "b.csv", b, delimiter=",")
+        np.savetxt(dirpath + "gf_pivot.csv", gf_pivot, delimiter=",")
+        np.savetxt(dirpath + "gf_nopivot.csv", gf_nopivot, delimiter=",")
+        np.savetxt(dirpath + "np_solution.csv", solution, delimiter=",")

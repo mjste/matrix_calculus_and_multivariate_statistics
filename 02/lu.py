@@ -20,7 +20,8 @@ def lu_factorization(A: matrixType) -> Tuple[matrixType, matrixType]:
     return L, U
 
 
-def lu_factorization_with_pivoting(A: matrixType) -> Tuple[matrixType, matrixType, matrixType]:
+def lu_factorization_with_pivoting(A: matrixType) \
+    -> Tuple[matrixType, matrixType, matrixType]:
     n = len(A)
     L = [[0.0] * n for _ in range(n)]
     U = [[0.0] * n for _ in range(n)]
