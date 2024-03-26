@@ -1,12 +1,25 @@
 
 import numpy as np
 
-def LU(A):
+def LU_inplace(A):
     for i in range(A.shape[1]):
         f = A[i + 1:, i] / A[i, i]
         A[i + 1:, i:] -= A[i, i:] * f.reshape(-1, 1)
         A[i + 1:, i] = f
     return np.tril(A, -1) + np.eye(A.shape[0]), np.triu(A)
+
+
+def LU(A):
+    n = A.shape[0]
+    U = A.copy()
+    L = np.eye(n)
+
+    for i in range(n):
+        for j in range(i+1, n):
+            L[j, i] = U[j, i] / U[i, i]
+            U[j, i:] = U[j, i:] - L[j, i]*U[i, i:]
+
+    return L, U
 
 def LU_partial_pivoting(A):
     n = A.shape[0]
