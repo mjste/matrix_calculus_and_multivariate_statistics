@@ -1,0 +1,245 @@
+\documentclass[a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[polish]{babel}
+\usepackage{graphicx}
+\usepackage{listings}
+\usepackage{float}
+\usepackage{amsmath}
+\usepackage{geometry}
+ \geometry{
+ a4paper,
+ total={170mm,257mm},
+ left=20mm,
+ top=20mm,
+ }
+
+\graphicspath{ {./images/} }
+
+
+\begin{document}
+
+
+\begin{titlepage}
+    \begin{center}
+        \vspace*{1cm}
+
+        \Huge
+        \textbf{Rachunek Macierzowy i Statystyka Wielowymiarowa}
+
+        \Large
+        \vspace{0.5cm}
+        Raport z zadania 3. - Implementacja norm macierzowych, wspołczynników uwarunkowania oras SVD.
+
+        \vspace{1.5cm}
+
+        \textbf{Wojciech Jasiński, Michał Stefanik}
+
+        \vfill
+
+
+        \vspace{0.8cm}
+
+        \includegraphics[width=0.4\textwidth]{agh_logo.jpg}
+
+        Wydział Informatyki\\
+        Akademia Górniczo Hutnicza\\
+        Kraków\\
+        \today
+
+    \end{center}
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+
+
+
+\section{Wstęp}
+
+
+Należało zaimplementować:
+\begin{itemize}
+    \item Normy macierzowe: $||A||_1$, $||A||_2$, $||A||_p$, $||A||_{\infty}$ 
+    \item Współczynniki uwarunkowania: $cond_1(A)$, $cond_2(A)$, $cond_p(A)$, $cond_{\infty}(A)$
+    \item Rozkład SVD macierzy
+\end{itemize}
+
+
+
+\section{Dane techniczne}
+Używamy \texttt{np.ndarray} z biblioteki \texttt{numpy} do reprezentacji macierzy. Wszystkie funkcje przyjmują i zwracają macierze w tej postaci.
+
+
+Do testów używamy macierzy o wymiarach 3x3:
+
+\[
+    M =
+\begin{bmatrix}
+    4 & 9 & 2\\
+    3 & 5 & 7\\
+    8 & 1 & 6
+\end{bmatrix}
+\]
+
+
+
+\section{Normy macierzowe}
+
+\subsection{Norma $||A||_1$}
+
+\subsubsection{Algorytm}
+Wzór na tę normę to 
+$||A||_1 = max_{j-1,...,n}\sum_{i=1,...,n}|a_{ij}|$. W prostszych słowach,
+jest to maksymalna suma wartości bezwzględnych w kolumnach macierzy.
+
+\subsubsection{Fragment kodu}
+
+\begin{lstlisting}[language=python]
+def matrix_norm_1(A: np.ndarray):
+    return np.max(np.sum(np.abs(A), axis=0))
+\end{lstlisting}
+
+\subsubsection{Wartość dla macierzy testowej}
+
+Dla macierzy testowej $M$ wartość normy $||M||_1$ wynosi 15.
+
+\subsection{Norma $||A||_2$}
+
+\subsubsection{Algorytm}
+Wzór na tę normę to
+$||A||_2 = |{\lambda_{1}}|$. W prostszych słowach, to największa
+co do modułu wartość własna macierzy.
+
+\subsubsection{Fragment kodu}
+
+\begin{lstlisting}[language=python]
+def matrix_norm_2(A: np.ndarray):
+    return np.max(np.abs(np.linalg.eigvals(A)))
+\end{lstlisting}
+
+\subsection{Wartość dla macierzy testowej}
+
+Dla macierzy testowej $M$ wartość normy $||M||_2$ wynosi 15.
+
+\subsection{Norma $||A||_p$}
+
+\subsection{Norma $||A||_{\infty}$}
+
+\subsubsection{Algorytm}
+Wzór na tę normę to
+$||A||_{\infty} = max_{i=1,...,n}\sum_{j=1,...,n}|a_{ij}|$. W prostszych słowach,
+jest to maksymalna suma wartości bezwzględnych w wierszach macierzy.
+
+\subsubsection{Fragment kodu}
+
+\begin{lstlisting}[language=python]
+def matrix_norm_inf(A: np.ndarray):
+    return np.max(np.sum(np.abs(A), axis=1))
+\end{lstlisting}
+
+\subsection{Wartość dla macierzy testowej}
+
+Dla macierzy testowej $M$ wartość normy $||M||_{\infty}$ wynosi 15.
+
+
+\section{Współczynniki uwarunkowania}
+
+\subsection{Współczynnik uwarunkowania $cond_1(A)$}
+
+\subsection{Współczynnik uwarunkowania $cond_2(A)$}
+
+\subsection{Współczynnik uwarunkowania $cond_p(A)$}
+
+\subsection{Współczynnik uwarunkowania $cond_{\infty}(A)$}
+
+\section{Rozkład SVD macierzy}
+
+\subsection{Algorytm}
+
+Macierz \(A\) można zdekomponować na trzy macierze: \(U\), \(S\) i \(V\), takie że:
+\[
+    A = U \cdot S \cdot V^T
+\]
+
+gdzie:
+\begin{itemize}
+    \item \(U\) - macierz ortonormalna
+    \item \(S\) - macierz diagonalna
+    \item \(V\) - macierz ortonormalna
+\end{itemize}
+
+Macierz \(S\) zawiera wartości osobliwe macierzy \(A\), a macierze \(U\) i \(V\)
+zawierają wektory własne macierzy odpowiednio $A A^T $ oraz $A^T  A$.
+
+Macierz V znajdujemy jako macierz wektorów własnych macierzy \(A^T A\).
+Następnie sortujemy wartości własne malejąco i tworzymy macierz V z wektorów własnych
+odpowiadających wartościom własnym w tej kolejności. Wartości własne dla tej macierzy
+pierwiastkujemy i tworzymy z nich macierz S.
+
+Następnie obliczamy macierz U jako \(U = A \cdot V \cdot S^{-1}\).
+
+\subsection{Fragment kodu}
+
+\begin{lstlisting}[language=python]
+def SVD(A: np.ndarray):
+    left_shape = A.shape[0]
+    right_shape = A.shape[1]
+    eigenvalues, V = np.linalg.eigh(np.dot(A.T, A))
+
+    idx = np.argsort(eigenvalues)[::-1]
+    eigenvalues = eigenvalues[idx]
+    V = V[:, idx]
+
+    singular_values = np.sqrt(eigenvalues)
+    right_singular_vectors = V
+
+    left_singular_vectors = np.dot(A, right_singular_vectors)
+
+    with np.errstate(divide="ignore"):
+        left_singular_vectors /= singular_values
+
+    left_singular_vectors = left_singular_vectors[:, :left_shape]
+    Sigma = np.diag(singular_values)[:left_shape, :right_shape]
+
+    return left_singular_vectors, Sigma, right_singular_vectors.T
+
+\end{lstlisting}
+
+\subsection{Wartość dla macierzy testowej}
+
+Dla macierzy testowej $M$ otrzymujemy:
+
+\[
+    U =
+\begin{bmatrix}
+    -0.45 & -0.89\\
+    -0.98 & -.45
+\end{bmatrix}
+\]
+
+\[
+    S =
+\begin{bmatrix}
+    3 & 0 & 0\\
+    0 & 2 & 0
+\end{bmatrix}
+\]
+
+\[
+    V^T =
+\begin{bmatrix}
+    0.7 & -0.3 & -0.5\\
+    0 & -0.8 & 0.4\\
+    -0.67 & -.33  & 0.67
+\end{bmatrix}
+\]
+
+\section{Wnioski}
+
+W przypadku SVD zastosowana metoda pozwala nie szukac dwukrotnie wartości własnych, przez co
+może być szybsza.
+
+
+\end{document}
