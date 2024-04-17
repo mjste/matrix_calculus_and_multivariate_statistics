@@ -38,6 +38,28 @@ def matrix_norm_2(A: np.ndarray):
     return np.max(np.abs(np.linalg.eigvals(A)))
 
 
+def matrix_norm_schatten(A: np.ndarray, p: int):
+    """Schatten p-norm of matrix A.
+
+    https://en.wikipedia.org/wiki/Schatten_norm
+
+    """
+    U, S, Vt = SVD(A)
+    return np.sum(S ** p) ** (1 / p)
+
+def matrix_cond_1(A: np.ndarray):
+    return matrix_norm_1(A) * matrix_norm_1(np.linalg.inv(A))
+
+def matrix_cond_2(A: np.ndarray):
+    return matrix_norm_2(A) * matrix_norm_2(np.linalg.inv(A))
+
+def matrix_cond_inf(A: np.ndarray):
+    return matrix_norm_inf(A) * matrix_norm_inf(np.linalg.inv(A))
+
+def matrix_cond_p(A: np.ndarray, p: int):
+    return matrix_norm_schatten(A, p) * matrix_norm_schatten(np.linalg.inv(A), p)
+
+
 A = np.array([[1, 2, 0], [2, 0, 2]])
 B = A.T
 
@@ -83,4 +105,25 @@ print(matrix_norm_2(M))
 print(np.linalg.norm(M, ord=2))
 print()
 
+print("Matrix norm Schatten 4 of matrix M")
+print(matrix_norm_schatten(M, 4))
+print()
 
+
+print("Matrix condition number 1 of matrix M")
+print(matrix_cond_1(M))
+print(np.linalg.cond(M, p=1))
+print()
+
+print("Matrix condition number 2 of matrix M")
+print(matrix_cond_2(M))
+print(np.linalg.cond(M, p=2))
+print()
+
+print("Matrix condition number inf of matrix M")
+print(matrix_cond_inf(M))
+print(np.linalg.cond(M, p=np.inf))
+print()
+
+print("Matrix condition number 4 of matrix M")
+print(matrix_cond_p(M, 4))

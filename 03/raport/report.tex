@@ -119,11 +119,30 @@ def matrix_norm_2(A: np.ndarray):
     return np.max(np.abs(np.linalg.eigvals(A)))
 \end{lstlisting}
 
-\subsection{Wartość dla macierzy testowej}
+\subsubsection{Wartość dla macierzy testowej}
 
 Dla macierzy testowej $M$ wartość normy $||M||_2$ wynosi 15.
 
 \subsection{Norma $||A||_p$}
+
+Z definicji:
+\[
+\|A\|_p = \sup_{x \neq 0} \frac{\|Ax\|_p}{\|x\|_p}
+\]
+
+Dla $ p \neq 1, 2, \infty$ wartości normy są NP-trudne do aproksymacji. Skoro nie możemy po prostu policzyć p-normy, użyjmy normy Schattena. Dla $p=2$ przyjmuje ona postać normy Frobeniusa, dla $p=\infty$ normy spektralnej.
+
+\subsubsection{Fragment kodu}
+
+\begin{lstlisting}[language=python]
+def matrix_norm_schatten(A: np.ndarray, p: int):
+    return np.sum(np.abs(np.linalg.eigvals(A)) ** p) ** (1 / p)
+\end{lstlisting}
+
+\subsubsection{Wartość dla macierzy testowej}
+
+Dla macierzy testowej $M$ wartość normy Schattena $||M||_5$ wynosi 15.178.
+
 
 \subsection{Norma $||A||_{\infty}$}
 
@@ -139,20 +158,68 @@ def matrix_norm_inf(A: np.ndarray):
     return np.max(np.sum(np.abs(A), axis=1))
 \end{lstlisting}
 
-\subsection{Wartość dla macierzy testowej}
+\subsubsection{Wartość dla macierzy testowej}
 
 Dla macierzy testowej $M$ wartość normy $||M||_{\infty}$ wynosi 15.
 
 
 \section{Współczynniki uwarunkowania}
 
+Współczynnik uwarunkowania danej macierzy $A$ w $p$-normie definiujemy jako:
+\[
+cond_{p}(A) = \|A\|_p \cdot \|A^{-1}\|_p
+\]
+Wartość ta odzwierciedla wrażliwość rozwiązania układu równań liniowych na perturbacje w danych wejściowych lub błędy.
+
+
+
 \subsection{Współczynnik uwarunkowania $cond_1(A)$}
+
+\subsubsection{Fragment kodu}
+
+\begin{lstlisting}[language=python]
+def matrix_cond_1(A: np.ndarray):
+    return matrix_norm_1(A) * matrix_norm_1(np.linalg.inv(A))
+\end{lstlisting}
+
+\subsubsection{Wartość dla macierzy testowej}
+
+Dla macierzy testowej $M$ wartość współczynnika uwarunkowania $cond_{1}(A)$ wynosi 5.33
 
 \subsection{Współczynnik uwarunkowania $cond_2(A)$}
 
+\begin{lstlisting}[language=python]
+def matrix_cond_2(A: np.ndarray):
+    return matrix_norm_2(A) * matrix_norm_2(np.linalg.inv(A))
+\end{lstlisting}
+
+\subsubsection{Wartość dla macierzy testowej}
+
+Dla macierzy testowej $M$ wartość współczynnika uwarunkowania $cond_2(A)$ wynosi 4.33
+
 \subsection{Współczynnik uwarunkowania $cond_p(A)$}
 
+Z uwagi na NP-trudność aproksymacji $p$-norm macierzy dla $2 < p < \infty$, używamy wcześniej wspomnianej normy Schattena.
+
+\begin{lstlisting}[language=python]
+def matrix_cond_p(A: np.ndarray, p: int):
+    return matrix_norm_schatten(A, p) * matrix_norm_schatten(np.linalg.inv(A), p)
+\end{lstlisting}
+
+\subsubsection{Wartość dla macierzy testowej}
+
+Dla macierzy testowej $M$ wartość współczynnika uwarunkowania $cond_p(A)$ wynosi 4.33
+
 \subsection{Współczynnik uwarunkowania $cond_{\infty}(A)$}
+
+\begin{lstlisting}[language=python]
+def matrix_cond_inf(A: np.ndarray):
+    return matrix_norm_inf(A) * matrix_norm_inf(np.linalg.inv(A))
+\end{lstlisting}
+
+\subsubsection{Wartość dla macierzy testowej}
+
+Dla macierzy testowej $M$ wartość współczynnika uwarunkowania $cond_{\infty}(A)$ wynosi 5.33
 
 \section{Rozkład SVD macierzy}
 
@@ -238,8 +305,10 @@ Dla macierzy testowej $M$ otrzymujemy:
 
 \section{Wnioski}
 
-W przypadku SVD zastosowana metoda pozwala nie szukac dwukrotnie wartości własnych, przez co
-może być szybsza.
+\begin{itemize}
+    \item  W przypadku SVD zastosowana metoda pozwala nie szukać dwukrotnie wartości własnych, przez co może być szybsza.
+    \item $P$-normy macierzowe dla $p$ różnych od $1$, $2$, są $\infty$ rzadko używane z uwagi na niepraktyczne i trudne aproksymacje numeryczne. Żadna sprawdzana biblioteka do obliczeń numerycznych nie implementuje algorytmów aproksymacji tych norm.
+\end{itemize}
 
 
 \end{document}
