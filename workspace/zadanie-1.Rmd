@@ -1,0 +1,77 @@
+---
+title: "Podstawowe metody klasyfikacji"
+#author: "Hubert Guzowski"
+date: "Semestr letni 2023/24"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, eval = FALSE)
+```
+
+## Zadania
+
+To zadanie jest oparte o zbiór danych winequality, który został stworzony w celu zbadania wpływu składu chemicznego na jakość wina. Jest dostępny w repozytorium UC Irvine, gdzie można też znaleźć dokładny opis <https://archive.ics.uci.edu/dataset/186/wine+quality>. W tym zadaniu skupimy się konkretnie na zbiorze oceniającym wina białe.
+
+```{r wine task dataset}
+winequality <- read.csv("http://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/winequality-white.csv", sep = ";")
+head(winequality)
+```
+
+1.  Wytrenuj model regresji liniowej przewidujący jakość wina (quality) na podstawie wartości w pozostałych kolumnach. Które z wymienionych wartości mają największy wpływ na jakość?
+
+```{r task 1}
+wine_lm <- lm( quality ~ . , data = winequality)
+summary(wine_lm)
+
+significance = log(sort(abs(wine_lm$coefficients), decreasing = TRUE))
+
+barplot(significance, las=2, ylab = "log(|coef|)", )
+title("Wpływ czynników na jakość wina")
+
+# Zdecydowanie największy wpływ na jakość ma gęstość, a w drugiej kolejności kwasowość
+```
+
+2.  Dopasuj regresję wielomianową jakości w zależności od zawartości cukru (residual.sugar). Co zaobserwowałeś przy zmianie stopnia wielomianu?
+
+```{r task 2}
+wine_poly = lm(quality ~ poly(residual.sugar, degree = 3), data = winequality)
+summary(wine_poly)
+
+# Przy regresji od zawartości cukru widać, że wartość zależy od stopni 1 i 3, ale prawie na pewno nie zależy od drugiego
+```
+
+3.  Podziel zbiór danych na treningowy i testowy w stosunku ilościowym 80:20 i wytrenuj modele klasyfikacji jakości oparte o wybrane 2 i 4 najistotniejsze kolumny. Zastosuj klasyfikator kNN. Jaka wartość k sprawdziła się Twoim zdaniem najlepiej dla każdej z wymiarowości?
+
+```{r task 3}
+set.seed(3)
+test_indices = sample(1:nrow(winequality), nrow(winequality)*0.2)
+
+wine_train = winequality[-test_indices,]
+wine_test = winequality[test_indices,]
+
+components_2 = c("density", "volatile.acidity")
+components_4 = c(components_2, "pH", "sulphates")
+
+ks = 1:7
+results = matrix(0, ncol=length(ks), nrow=2)
+
+for (k in ks) {
+  wine_knn_2 <- knn(wine_train[components_2], wine_test[components_2], wine_train$quality, k=k)
+  wine_knn_4 <- knn(wine_train[components_4], wine_test[components_4], wine_train$quality, k=k)
+  
+  res_2 = mean(wine_knn_2 != wine_test$quality)
+  res_4 = mean(wine_knn_4 != wine_test$quality)
+  
+  results[1,k] = res_2
+  results[2,k] = res_4
+}
+
+res = t(results)
+col = seq_len(2)
+matplot(res, type='b', xlab = "Liczba sąsiadów", ylab= "Dokładność (accuracy)", pch=20, col=col)
+legend("right", legend=c(2, 4), pch=20, col=col)
+
+
+# Przy obecnym podziale najkorzystniej wypadają wartości k = 2 i 3
+```

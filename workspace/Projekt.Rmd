@@ -1,0 +1,191 @@
+---
+title: "Projekt ze statystyki wielowymiarowej"
+output: html_notebook
+author: Michał Stefanik
+---
+
+Do analizy użyłem zbioru danych [https://www.kaggle.com/datasets/rabieelkharoua/students-performance-dataset](#0){.uri}. Opisuje on cechy studentów wraz z ich wynikami w nauce. Zbiór zawiera 2392 rekordów z 14 kolumnani. Jako wartość do regresji wykorzystam średnią (GPA), a do klasyfikacji ocenę (GradeClass).
+
+```{r}
+knitr::opts_chunk$set(echo = TRUE, eval = FALSE)
+
+library(readr)
+library(ggplot2)
+library(GGally)
+Student_performance_data <- read_csv("Student_performance_data _.csv")
+Sp_data <- Student_performance_data
+Sp_data <- Sp_data[ , !(names(Sp_data) %in% "StudentID")]
+
+# label categorical data with factor
+factor_col_names <- c("Tutoring", "Extracurricular", "Sports", "Music", "Volunteering")
+Sp_data[,factor_col_names] <- lapply(Sp_data[,factor_col_names] , factor)
+
+# map columns to their original names
+genderMapper <- function(code) {
+  switch(code+1, "Male", "Female")
+}
+ethnicityMapper <- function(code) {
+  switch(code+1, "Caucasian", "African American", "Asian", "Other")
+}
+gradeMapper <- function(code) {
+  switch(code+1, "A", "B", "C", "D", "F")
+}
+parentalSupportMapper <- function (code) {
+  switch(code+1, "None", "Low", "Moderate", "High", "Very High")
+}
+parentalEducationMapper <- function(code) {
+  switch(code+1, "None", "High School", "Some College", "Bachelor's", "Higher")
+}
+
+Sp_data$Gender <- factor(sapply(Sp_data$Gender, genderMapper))
+Sp_data$Ethnicity <- factor(sapply(Sp_data$Ethnicity, ethnicityMapper))
+Sp_data$GradeClass <- factor(sapply(Sp_data$GradeClass, gradeMapper))
+Sp_data$ParentalSupport <- factor(sapply(Sp_data$ParentalSupport, parentalSupportMapper))
+Sp_data$ParentalEducation <- factor(sapply(Sp_data$ParentalEducation, parentalEducationMapper))
+
+head(Sp_data)
+```
+
+```{r}
+ggpairs(Sp_data)
+```
+
+Biorąc pod uwagę wszystkie dostępne dane widać kilka korelacji, które wydają się intuicyjnie poprawne. Przykładowo GPA i Absences mają silną ujemną korelację, a GPA i StudyTimeWeekly słabą pozytywną korelację.
+
+# Regresja GPA
+
+```{r}
+library(dplyr)
+library(glmnet)
+
+data <- Sp_data[ , !(names(Sp_data) %in% "GradeClass")]
+data %>%
+    mutate_if(is.numeric, scale)
+
+n <- nrow(data)
+train <- sample(n, 0.8*n)
+test <- -train
+data_train <- data[train,]
+data_test <- data[-train,]
+
+linear_formula = GPA ~ .
+# degree <- 2
+# poly_formula <- as.formula(paste("GPA ~ poly(", paste(names(data)[-length(data)], collapse = ", "), ", degree=", degree, ", raw = TRUE)", sep = ""))
+
+fit_lm <- lm(linear_formula, data=data, subset=train)
+summary(fit_lm)
+
+train_RMSE <- sqrt(mean(fit_lm$residuals^2))
+test_RMSE <- sqrt(mean((predict(fit_lm, data_test) - data_test$GPA)^2))
+
+cat("Train RMSE:", train_RMSE, "\n")
+cat("Test RMSE:", test_RMSE, "\n")
+```
+
+Z pierwszej analizy zbioru z użyciem regresji liniowej widzimy, że największą istotność miały zmienne StudyTimeWeekly, Absences, Tutoring, Parental Support, Extracurricular, Sports oraz Music. Spośród nich, tylko duża liczba nieobecności i słabe wsparcie ze strony rodziców negatywnie wpływają na ocenę. Pozostałe wpływają pozytywnie. Wysoka wartość R-squared sugeruje, że ten model dość dobrze wyjaśnia wariancję danych. Trudno interpretować regresję wielomianową dla tych danych, gdzie duża część predyktorów to dane kategoryczne.
+
+W dalszym kroku ocenimy istotność predyktorów.
+
+```{r}
+lm_subsets <- regsubsets(GPA ~ ., data=data, subset=train)
+summary(lm_subsets)
+```
+
+Analizując predyktory funkcją regsubsets otrzymujemy podobne wnioski jak z analizy p-wartości zwykłą regresją. Te same predyktory zostały postawione na pierwszych miejscach. Największy wpływ mają nieobecności i godziny spędzone na nauce. Mimo, że współczynniki w regresji nie są tak wielkie dla nieobecności, jej wpływ może wynikać z większej różnorodności danych.
+
+Spróbujemy poprawić model za pomocą regularyzacji Lasso
+
+```{r}
+
+X <- model.matrix(GPA ~ ., data=data)[, -1]
+y <- data$GPA
+
+lambda_grid <- 10^seq(10, -2, length.out = 100)
+# fit_lasso <- glmnet(X[train,], y[train], alpha = 1, lambda = lambda_grid)
+
+set.seed(1)
+cv_out <- cv.glmnet(X[train,], y[train], alpha = 1)
+plot(cv_out)
+
+pred_ridge_opt_train <- predict(fit_ridge, s = cv_out$lambda.min, newx = X[train,])
+pred_ridge_opt_test <- predict(fit_ridge, s = cv_out$lambda.min, newx = X[test,])
+
+train_RMSE = sqrt(mean((pred_ridge_opt_train - y[train])^2))
+test_RMSE = sqrt(mean((pred_ridge_opt_test - y[test])^2))
+
+cat("Train RMSE:", train_RMSE, "\n")
+cat("Test RMSE:", test_RMSE, "\n")
+```
+
+Jak widać, regresja Lasso nieco pogorszyła RMSE na zbiorze treningowym i poprawiła na zbiorze testowym. Nie jest to jednak znaczna poprawa. Wyniki niemalże się nie różnią od wersji bez regularyzacji.
+
+Spróbujmy zastosować model random forest
+
+```{r}
+data_rf <- randomForest(GPA ~ ., data=data, subset=train,importance = TRUE)
+varImpPlot(data_rf)
+
+test_out <- predict(data_rf, newdata = data[test,])
+test_RMSE <- sqrt(mean((test_out - data[test,]$GPA)^2))
+cat("Test RMSE:", test_RMSE)
+```
+
+Jak widać powyżej, za ważne cechy uznano te same, co w poprzednich przypadkach, ale w tym wypadku model osiągnął nieco gorszy wynik na zbiorze testowym, w porównaniu do modeli liniowych.
+
+# Klasyfikacja ocen
+
+```{r}
+data <- Sp_data[ , !(names(Sp_data) %in% "GPA")]
+data %>%
+    mutate_if(is.numeric, scale)
+
+data_train <- data[train,]
+data_test <- data[-train,]
+
+linear_formula = GradeClass ~ .
+degree <- 2
+poly_formula <- as.formula(paste("GradeClass ~ poly(", paste(names(data)[-length(data)], collapse = ", "), ", degree=", degree, ", raw = TRUE)", sep = ""))
+library(nnet)
+
+evaluate_formula <- function(formula) {
+  fit_mlm <- multinom(formula, data=data, subset=train, trace=FALSE)
+  
+  y_pred_train <- predict(fit_mlm, newdata = data_train)
+  y_pred_test <- predict(fit_mlm, newdata = data_test)
+  
+  train_accuracy = sum(y_pred_train == data_train$GradeClass) / nrow(data_train)
+  test_accuracy = sum(y_pred_test == data_test$GradeClass) / nrow(data_test)
+  
+  return(list(model=fit_mlm, train_accuracy=train_accuracy, test_accuracy=test_accuracy))
+}
+
+linear <- evaluate_formula(linear_formula)
+poly <- evaluate_formula(poly_formula)
+
+sprintf("Linear model. Train accuracy: %f, Test accuracy: %f", linear$train_accuracy, linear$test_accuracy)
+sprintf("Polynomial model. Train accuracy: %f, Test accuracy: %f", poly$train_accuracy, poly$test_accuracy)
+```
+
+Z obu badanych modeli lepiej sprawdził się zwykły model liniowy. Co ciekawe, nawet na zbiorze treningowym. Być może wynika to z błędu w konstrukcji modelu wielomianowego.
+
+```{r}
+mlm_subsets <- regsubsets(GradeClass ~ ., data=data, subset=train)
+summary(mlm_subsets)
+```
+
+W tym przypadku kilka pierwszych predyktorów wypadło tak samo jak w przypadku regresji. To spodziewany wynik, bo GradeClass zależy bezpośrednio od wartości GPA, którą staraliśmy się oszacować wcześniej
+
+```{r}
+data_rf <- randomForest(GradeClass ~ ., data=data, subset=train,importance = TRUE)
+varImpPlot(data_rf)
+
+test_out <- predict(data_rf, newdata = data[test,])
+test_accuracy = sum(test_out == data[test,]$GradeClass) / nrow(data_test)
+cat("Test accuracy:", test_accuracy)
+```
+
+Istotność cech w podejściu klasyfikacyjnym dała wyniki bardzo podobne do podejścia regresyjnego. W tym przypadku również model RandomForest poradził sobie gorzej od zwykłej regresji liniowej. Sugerowałoby to, że w modelu istotnie występują zależności liniowe.
+
+# Wnioski końcowe
+
+Wyniki na poziomie 70% dokładności oraz 0.2 RMSE w regresji wydają się być nienajgorsze. Być może potraktowanie kilku zmiennych jako kategoryczne było błędem (np. ParentalSupport, ParentalEducation) - wykazywały one uporządkowanie i może mogłbyby wnieć więcej do modelu.

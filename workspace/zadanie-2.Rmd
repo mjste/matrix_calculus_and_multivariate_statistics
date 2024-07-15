@@ -1,0 +1,122 @@
+---
+title: "Zadanie 2"
+author: "Hubert Guzowski"
+date: "Semestr letni 2023/24"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, eval = FALSE)
+library(class)
+library(leaps)
+```
+
+## Zadania
+
+Ponownie pracujemy z wykorzystaniem zbioru winequality z repozytorium UC Irvine <https://archive.ics.uci.edu/dataset/186/wine+quality>.
+
+```{r wine task dataset}
+winequality_white <- read.csv("http://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/winequality-white.csv", sep = ";")
+winequality_red <- read.csv("http://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/winequality-red.csv", sep = ";")
+head(winequality_red)
+```
+
+1.  Do obu tabel winequality_white i winequality_red należy dodać kolumnę type zawierającą zmienną kategoryczną o wartości odpowiednio 'white' i 'red'. Następnie połącz tabele w jedną o nazwie winequality.
+
+```{r task 1}
+winequality_white$type <- factor("white")
+winequality_red$type <- factor("red")
+
+winequality <- rbind(winequality_white, winequality_red)
+```
+
+2.  Do tego zadania bardzo przydatna będzie biblioteka caret dostarczająca narzedzia do podziału zbioru, treningu i selekcji cech.
+
+```{r task 2prep}
+install.packages("caret")
+library(caret)
+```
+
+a)  Wykorzystując metodę zbioru walidacyjnego podziel zbiór danych winequality 10 razy (proporcja liczności w obu podzbiorach jest dowolna). Dla tak otrzymanych podziałów wytrenuj klasyfikatory kNN o k z zakresu od 2 do 6 na zbiorze treningowym przewidujące typ wina i sprawdź dokładność ich predykcji na zbiorze testowym. Wyniki umieść na wykresie (podobnym do tego wykorzystanego na zajęciach). Wykorzystaj funkcje createDataPartition i knn3 z pakietu caret.
+
+```{r task 2a}
+n_partitions <- 10
+ks <- 2:6
+
+data_partitions <- createDataPartition(winequality$type, times=n_partitions, p=0.8 )
+
+m <- matrix(0, nrow=n_partitions, ncol=length(ks))
+
+for (pi in seq_along(data_partitions)) {
+  partition <- data_partitions[[pi]]
+  train_set <- winequality[partition,]
+  test_set <- winequality[-partition,]
+  
+  for (ki in seq_along(ks)){
+    k <- ks[ki]
+    kn <- knn3(type ~ . , data=train_set, k=k)
+    pred <-predict(kn, test_set)
+    out <- dimnames(pred)[[2]][max.col(pred)]
+    acc = sum(test_set$type == out) / length(out)
+    m[pi,ki] <- acc
+  }
+}
+matplot(ks, t(m), pch=20, type="b")
+```
+
+2.b) Powtórz operacje z zadania 2.a tym razem wykorzystując do podziału zbioru metodę 10-krotnej walidacji krzyżowej. Wyniki ponownie zwizualizuj wykorzystując wykres. Jakie są różnice pomiędzy wykresami? Jaka wartość k sprawdziła się najlepiej? Wykorzystaj funkcje trainControl oraz train (wielkości k do przetestowania można ustawić parametrem tuneGrid).
+
+```{r task 2b}
+n_folds <- 10
+ks <- 2:6
+
+folds <- createFolds(winequality$type, k=n_folds)
+m <- matrix(0, nrow=n_partitions, ncol=length(ks))
+
+for (fi in seq_along(folds)) {
+  test_partition <- folds[[fi]]
+  train_set <- winequality[-test_partition,]
+  test_set <- winequality[test_partition,]
+  
+  for (ki in seq_along(ks)){
+    k <- ks[ki]
+    kn <- knn3(type ~ . , data=train_set, k=k)
+    pred <-predict(kn, test_set)
+    out <- dimnames(pred)[[2]][max.col(pred)]
+    acc = sum(test_set$type == out) / length(out)
+    m[fi,ki] <- acc
+  }
+}
+matplot(ks, t(m), pch=20, type="b")
+```
+
+Wizualnie trudno stwierdzić jaka wartość k jest najlepsza. W wielu przypadkach wyniki wyglądają podobnie. W gruncie rzeczy obie metody są podobne, tylko w przypadków fold'ów mamny gwarancję, że różne próby będą miały rozłączne zbiory testowe.
+
+```{r}
+train_control <- trainControl(method="cv", number=10)
+k_values <- expand.grid(k = 2:6)
+set.seed(1)
+
+knn_model <- train(type ~ ., data=winequality, method="knn", trControl=train_control, tuneGrid = k_values)
+print(knn_model)
+plot(knn_model)
+```
+
+3.  Wykorzystując metodę regsubsets z pakietu leaps wybierz najlepszy podzbiór cech (metodą do przodu lub wstecz) według kryteriów AIC i BIC dla modelu regresji liniowej przewidującego jakość wina. Czy tak uzyskane zbiory różnią się między sobą i jeśli tak to dlaczego? Czy jest różnica między otrzymanym w ten sposób podzbiorem cech a tymi, które wyróżniłeś jako najistotniejsze w zadaniu sprzed tygodnia?
+
+```{r task 3}
+reg_fwd <- regsubsets(type ~ ., data = winequality, method = "forward")
+reg_fwd_sum <- summary(reg_fwd)
+
+plot(reg_fwd_sum$bic, ylab="bic")
+
+n = nrow(winequality)
+p <- apply(reg_fwd_sum$which, 1, sum)
+
+aic <- reg_fwd_sum$bic - log(n) * p + 2 * p
+plot(p, aic, ylab="AIC")
+
+reg_fwd_sum
+# w obu przypadkach wykres kryteriów jest podobny do siebie i ciągle majlejący.
+# w poprzednim zadaniu wnioskowałem, że największy wpływ miały czynnki gęstość i volatile acidity. Teraz wychodzi na to, że total.sulfur.dioxide ma największe znaczenie, a density jest na drugim miejscu. Nie stwierdzono, że model ma za dużo czynników według kryteriów BIC oraz AIC. Być może duże wartości współczynników były przy wartościach mało zmiennych.
+```

@@ -1,0 +1,189 @@
+---
+title: "Walidacja krzyżowa i bootstrap"
+date: "Semestr letni 2023/24"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, eval = FALSE)
+library(MASS)
+library(ISLR)
+library(boot)
+```
+
+## Walidacja krzyżowa
+
+Używamy zbioru danych `Auto`. Można go wczytać z pliku z pierwszego laboratorium,
+jest też dostępny w pakiecie `ISLR`. **Należy usunąć z niego wiersze zawierające `NA`**.
+```{r auto.na.omit}
+Auto <- na.omit(Auto)
+```
+
+### Metoda zbioru walidacyjnego
+
+Tworzymy zbiór uczący z połowy dostępnych obserwacji --- reszta będzie stanowić
+zbiór walidacyjny. Dla zapewnienia powtarzalności obliczeń stosujemy funkcję
+`set.seed`.
+```{r validationSet1}
+set.seed(1)
+n <- nrow(Auto)
+train <- sample(n, n / 2)
+```
+
+Dopasowujemy model liniowy na zbiorze uczącym, następnie obliczamy MSE dla zbioru
+walidacyjnego.
+```{r validationSet2}
+Auto_lm <- lm(mpg ~ horsepower, data = Auto, subset = train)
+validation_set <- Auto[-train,]
+mse <- mean((validation_set$mpg - predict(Auto_lm, validation_set))^2)
+mse
+```
+
+Powtarzamy to samo dla regresji wielomianowej wyższych stopni
+```{r validationSet3}
+for (i in 2:5) {
+  Auto_lm_poly <- lm(mpg ~ poly(horsepower, degree = i), data = Auto, 
+                     subset = train)
+  print(mean((validation_set$mpg - predict(Auto_lm_poly, validation_set))^2))
+}
+```
+
+[**Jaki z tych wyników można wyciągnąć wniosek?**]
+
+Powtarzamy obliczenia dla innego zbioru walidacyjnego.
+```{r validationSetOther}
+set.seed(5)
+train <- sample(n, n / 2)
+validation_set <- Auto[-train,]
+degree_max <- 5
+mse <- rep(0, times = degree_max)
+for (i in 1:degree_max) {
+  Auto_lm <- lm(mpg ~ poly(horsepower, degree = i), data = Auto, subset = train)
+  mse[i] <- mean((validation_set$mpg - predict(Auto_lm, validation_set))^2)
+}
+mse
+```
+
+Wersja powyższego obliczenia dla miłośników programowania funkcyjnego i tych,
+którzy nie lubią pętli.
+```{r validationSetOtherNoLoop}
+compute_mse <- function(degree, train) {
+  Auto_lm <- lm(mpg ~ poly(horsepower, degree), data = Auto, subset = train)
+  validation_set <- Auto[-train,]
+  mean((validation_set$mpg - predict(Auto_lm, validation_set))^2)
+}
+
+mse <- sapply(1:degree_max, compute_mse, train = train)
+mse
+```
+Funkcja `vapply` jest bezpieczniejsza i bywa szybsza od `sapply`, więc
+przedostatnią instrukcję można zmodyfikować następująco:
+```{r vapply}
+mse <- vapply(1:degree_max, compute_mse, FUN.VALUE = numeric(1), train = train)
+```
+
+Otrzymane wyniki można zobrazować na wykresie
+```{r validationSetPlot}
+plot(mse, xlab = "Stopień wielomianu", ylab = "MSE", type = "b", pch = 20, 
+     col = "blue")
+```
+
+[**Wykorzystując funkcję matplot przygotuj pojedynczy wykres, który obrazuje zmianę mse w zależności od stopnia wielomianu dla 10 różnych ziaren losowych.**]
+```{r 10 line plot task}
+
+```
+
+[**Czy teraz wcześniejsze wnioski ulegają zmianie?**]
+
+### Walidacja krzyżowa _bez jednego_ (*leave-one-out*)
+
+Walidację krzyżową dla uogólnionych modeli liniowych wykonuje funkcja `cv.glm()`
+z pakietu `boot`. Jej argumentem (`glmfit`) jest obiekt klasy `glm`, więc
+jeśli chcemy jej użyć do walidacji zwykłych modeli liniowych, musimy je dopasowywać
+jako uogólnione modele liniowe (z `family = gaussian`, co zresztą jest wartością
+domyślną). Funkcja `cv.glm()` zwraca listę (zobacz `?cv.glm`), której najbardziej
+interesującą składawą jest `delta` --- wektor o długości 2 zawierający estymatę
+błędu predykcji w wersji oryginalnej i skorygowaną dla uwzględnienia obciążenia
+wprowadzanego przez walidację krzyżową inną niż LOOCV.
+```{r loocv}
+compute_loocv_mse <- function(degree) {
+  Auto_glm <- glm(mpg ~ poly(horsepower, degree), data = Auto)
+  cv.glm(Auto, Auto_glm)$delta[1]
+}
+mse <- sapply(1:degree_max, compute_loocv_mse)
+mse
+```
+
+Można też narysować obrazek
+```{r loocvPlot}
+plot(mse, xlab = "Stopień wielomianu", ylab = "LOOCV MSE", type = "b", pch = 20, 
+     col = "blue")
+```
+
+[**Co teraz z wnioskami na temat regresji wielomianowej w naszym przypadku?**]
+
+[**Sprawdź, że dla LOOCV obie współrzędne `delta` zawierają praktycznie to samo.**]
+
+### $k$-krotna walidacja krzyżowa
+
+Podobnie korzystamy z funkcji `cv.glm()`, tylko teraz jawnie ustawiamy parametr `K`
+oznaczający liczbę grup (*folds*). Np. dla $k = 10$ wygląda to jak poniżej.
+```{r kcv}
+compute_kcv_mse <- function(degree, k) {
+  Auto_glm <- glm(mpg ~ poly(horsepower, degree), data = Auto)
+  cv.glm(Auto, Auto_glm, K = k)$delta[1]
+}
+mse <- sapply(1:degree_max, compute_kcv_mse, k = 10)
+mse
+```
+
+Oczywiście tym razem wyniki są losowe. Możemy zrobić ich zestawienie
+dla np. 10 prób.
+```{r kcv2}
+mse10 <- replicate(10, sapply(1:degree_max, compute_kcv_mse, k = 10))
+mse10
+```
+
+I stosowny obrazek
+```{r kcv2Plot}
+matplot(mse10, pch = 20, type = "l", xlim = c(1, degree_max), ylim = c(18, 25),
+        xlab = "Stopień wielomianu", ylab = "Walidacyjny MSE")
+```
+
+[**Co teraz z wnioskami?**]
+
+## Bootstrap
+
+Użyjemy metody *bootstrap* do oszacowania błędów standardowych współczynników
+regresji liniowej. Podstawową funkcją jest tutaj `boot()` z pakietu `boot`.
+Wymaga ona jako parametru funkcji obliczającej interesującą statystykę dla podanego 
+zbioru danych. Ta ostatnia funkcja powinna akceptować dwa parametry: zbiór danych
+oraz wektor indeksów (istnieją też inne możliwości: `?boot`).
+```{r bootFunction}
+lm_coefs <- function(data, index = 1:nrow(data)) {
+  coef(lm(mpg ~ horsepower, data = Auto, subset = index))
+}
+```
+
+Funkcja `lm_coefs()` oblicza estymaty współczynników regresji dla zbioru danych
+typu bootstrap utworzonego z `Auto`:
+```{r bootAuto}
+n <- nrow(Auto)
+lm_coefs(Auto, sample(n, n, replace = TRUE))
+```
+Oczywiście jednym z takich zbiorów jest sam oryginał
+```{r coefAuto}
+lm_coefs(Auto)
+```
+
+Obliczenie błędów standardowych metodą bootstrap z 1000 replikacji wygląda 
+następująco.
+```{r boot}
+boot(Auto, lm_coefs, R = 1000)
+```
+
+[**Porównaj otrzymane wyniki ze standardowymi błędami obliczonymi przez
+funkcję `lm()`. Jakie z tego porównania można wyciągnąć wnioski?**]
+
+[**Powtórz obliczenia dla regresji kwadratowej**]
+
